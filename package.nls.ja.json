@@ -1,0 +1,4 @@
+{
+  "description": ".eml ファイルを VS Code で表示します。ISO-2022-JP、Shift_JIS、GBK、Big5、EUC-KR、ISO-8859-* などの古い文字コードにも対応しています",
+  "command.openPreview.title": "EML Viewer で開く"
+}

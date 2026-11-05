@@ -1,0 +1,66 @@
+From: =?UTF-8?Q?=E9=80=81=E4=BF=A1=E8=80=85?= <sender@example.com>
+To: a@example.com, =?UTF-8?B?5Y+X5L+h6ICF?= <b@example.com>
+Subject: =?UTF-8?B?5re75LuY44OG44K544OI?=
+Date: Sat, 02 Jan 2021 18:05:12 +0900
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="MIX"
+
+This is a multi-part message.
+--MIX
+Content-Type: multipart/related; boundary="REL"
+
+--REL
+Content-Type: multipart/alternative; boundary="ALT"
+
+--ALT
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+=E7=94=BB=E5=83=8F=E4=BB=98=E3=81=8D=E3=81=AE=E3=83=A1=E3=83=BC=E3=83=AB=E3=
+=81=A7=E3=81=99=E3=80=82=E3=83=86=E3=82=AD=E3=82=B9=E3=83=88=E7=89=88=E3=80=
+=82
+--ALT
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+PGh0bWw+PGJvZHk+PHA+55S75YOP5LuY44GN44Gu44Oh44O844Or44Gn44GZ44CCPC9wPjxpbWcg
+c3JjPSJjaWQ6aW1nMUBleGFtcGxlIj48L2JvZHk+PC9odG1sPg==
+--ALT--
+--REL
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <img1@example>
+Content-Disposition: inline
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmM
+IQAAAABJRU5ErkJggg==
+--REL--
+--MIX
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename*=UTF-8''%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB.pdf
+
+JVBERi0xLjQgZHVtbXk=
+--MIX
+Content-Type: text/plain; name="=?ISO-2022-JP?B?GyRCJWElYhsoQi50eHQ=?="
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="=?ISO-2022-JP?B?GyRCJWElYhsoQi50eHQ=?="
+
+g4GDgoLMkoaQZw==
+--MIX
+Content-Type: application/vnd.ms-excel
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename*0*=UTF-8''%E3%81%A8%E3%81%A6%E3%82%82%E9%95%B7%E3%81%84%E6%B7%BB%E4%BB;
+ filename*1*=%98%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%81%AE%E5%90%8D%E5%89%8D%5F%E3%82%B5%E3%83%B3%E3%83%97%E3%83%AB%5F%E3%83%86%E3%82%B9%E3%83%88%E7%94%A8%E3%83%87%E3%83%BC%E3%82%BF%2E%78%6C%73%78
+
+eGxzeA==
+--MIX
+Content-Type: message/rfc822
+
+Subject: =?UTF-8?B?6Lui6YCB5YWD44Gu44Oh44O844Or?=
+From: a@example.com
+Content-Type: text/plain; charset=utf-8
+
+中のメール
+--MIX--

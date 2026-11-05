@@ -1,0 +1,24 @@
+From: =?ISO-2022-JP?B?GyRCJUYlOSVIQXc/LjxUGyhC?= <sender@example.jp>
+To: =?ISO-2022-JP?B?GyRCJUYlOSVIPHU/LjxUGyhC?= <receiver@example.jp>
+Subject: =?ISO-2022-JP?B?GyRCIVolRiU5JUghW0osM2QkNSRsJD8bKEI=?=
+ =?ISO-2022-JP?B?GyRCJTUlcyVXJWskTjdvTD4bKEI=?=
+Date: Fri, 1 Jan 2021 09:30:00 +0900 (JST)
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="_000_SAMPLE_"
+
+--_000_SAMPLE_
+Content-Type: text/plain; charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
+
+$B$3$s$K$A$O!#(B
+$B-!%5%s%W%k$NK\J8$G$9!#(B
+$B-j%5%s%W%k(B (IJ]686E(B $B$b3NG'!#(B
+https://example.com/form?id=1
+
+--_000_SAMPLE_
+Content-Type: text/html; charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
+
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=iso-2022-jp"></head><body><p>$B$3$s$K$A$O!#(B</p><p><b>$B-!%5%s%W%k(B</b>$B$NK\J8$G$9!#-j%5%s%W%k(B (IJ]68(B</p><p><a href="https://example.com/">$B%j%s%/(B</a></p><img src="https://tracker.example.com/p.gif"></body></html>
+--_000_SAMPLE_--

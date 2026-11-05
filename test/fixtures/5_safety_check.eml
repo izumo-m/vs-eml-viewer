@@ -1,0 +1,31 @@
+From: sender@example.com
+Subject: Safety check
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B5"
+
+--B5
+Content-Type: text/html; charset=utf-8
+
+<html><head><link rel="stylesheet preconnect" href="https://remote.example.invalid/a.css"><link rel="dns-prefetch" href="https://remote.example.invalid/"><meta http-equiv="refresh" content="0;url=https://remote.example.invalid/"></head><body><img name="head" alt="remote 1" src="https://remote.example.invalid/1.png"><img name="documentElement" alt="remote 2" src="https://remote.example.invalid/2.png"><img name="addEventListener" alt="remote 3" src="https://remote.example.invalid/3.png"><!-- cid:hidden@example --><iframe srcdoc="&lt;link rel=preconnect href=https://remote.example.invalid/nested&gt;"></iframe><form><math><mtext></form><form><mglyph><style></math><link rel=preconnect href=https://remote.example.invalid/mutated><math><mtext><p><table></table><mglyph><style><div><link rel=preconnect href=https://remote.example.invalid/quirks></div></style></mglyph></mtext></math><div><template shadowrootmode="open"><iframe srcdoc="&lt;link rel=preconnect href=https://remote.example.invalid/shadow&gt;"></iframe><a href="https://remote.example.invalid/shadow-link">link in a shadow root</a></template></div><p><a href="https://example.com/r?u=https%3A%2F%2Fy.example%2Fp%3Fa%3D1%26b%3D2">encoded link</a></p><p><a href="https://example.com/q?a=b%2Bc%23d">encoded query</a></p><form><input name="closest"><a href="https://example.com/in-form">link in a form</a></form><p id="top"><a href="#top">in-page link</a></p></body></html>
+--B5
+Content-Type: application/pdf
+Content-ID: <hidden@example>
+Content-Disposition: attachment; filename="hidden.pdf"
+
+dummy
+--B5
+Content-Type: text/plain
+Content-Disposition: attachment; filename="CON.txt"
+
+dummy
+--B5
+Content-Type: text/plain
+Content-Disposition: attachment; filename*=UTF-8''%69%6E%76%6F%69%63%65%E2%80%AE%67%6E%70%2E%65%78%65
+
+dummy
+--B5
+Content-Type: text/plain
+Content-Disposition: attachment; filename="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.txt"
+
+dummy
+--B5--

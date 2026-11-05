@@ -1,0 +1,86 @@
+{
+  "name": "vs-eml-viewer",
+  "displayName": "EML Viewer",
+  "description": "%description%",
+  "version": "0.1.0",
+  "publisher": "izumo-m",
+  "author": "Masanao Izumo",
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/izumo-m/vs-eml-viewer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/izumo-m/vs-eml-viewer/issues"
+  },
+  "homepage": "https://github.com/izumo-m/vs-eml-viewer#readme",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "eml",
+    "email",
+    "mail",
+    "mime",
+    "viewer"
+  ],
+  "main": "./extension.js",
+  "scripts": {
+    "test": "node --test",
+    "package": "node scripts/package.js",
+    "build": "npm test && npm run package"
+  },
+  "activationEvents": [
+    "onCustomEditor:emlViewer.preview"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "emlViewer.preview",
+        "displayName": "EML Viewer",
+        "selector": [
+          { "filenamePattern": "*.eml" },
+          { "filenamePattern": "*.EML" }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "emlViewer.openPreview",
+        "title": "%command.openPreview.title%",
+        "category": "EML"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "emlViewer.openPreview",
+          "when": "resourceExtname =~ /^\\.eml$/i && !activeCustomEditorId",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "emlViewer.openPreview",
+          "when": "resourceExtname =~ /^\\.eml$/i",
+          "group": "navigation"
+        }
+      ]
+    }
+  }
+}

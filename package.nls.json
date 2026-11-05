@@ -1,0 +1,4 @@
+{
+  "description": "View .eml email files in VS Code, including legacy charsets such as ISO-2022-JP, Shift_JIS, GBK, Big5, EUC-KR and ISO-8859-*",
+  "command.openPreview.title": "Open in EML Viewer"
+}

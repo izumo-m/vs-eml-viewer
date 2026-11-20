@@ -2,7 +2,7 @@
   "name": "vs-eml-viewer",
   "displayName": "EML Viewer",
   "description": "%description%",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "izumo-m",
   "author": "Masanao Izumo",
   "license": "MIT",

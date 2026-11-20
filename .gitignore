@@ -3,3 +3,6 @@ dist/
 *.vsix
 .vscode-test/
 .claude/
+
+# Windows NTFS 代替データストリーム (Zone.Identifier, OECustomProperty など)
+*:*

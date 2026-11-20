@@ -27,7 +27,7 @@ test('forLocale picks the language, falls back to English and fills placeholders
 });
 
 test('every string the code uses exists', () => {
-  for (const file of ['extension.js', 'media/viewer.js']) {
+  for (const file of ['extension.js', 'media/viewer.js', 'media/export.js']) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
     for (const m of src.matchAll(/\bt\('([^']+)'/g)) {
       assert.ok(m[1] in I18n.STRINGS.en, `${file}: ${m[1]}`);

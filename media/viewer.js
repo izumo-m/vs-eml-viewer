@@ -1,4 +1,4 @@
-/* global acquireVsCodeApi, EmlMime, EmlI18n */
+/* global acquireVsCodeApi, EmlMime, EmlI18n, EmlExport */
 (function () {
   'use strict';
 
@@ -26,6 +26,16 @@
       }
     } else if (msg.type === 'error') {
       showError(msg.message);
+    } else if (msg.type === 'export' && (msg.format === 'html' || msg.format === 'md')) {
+      try {
+        if (!model) throw new Error(t('noMail'));
+        const content = msg.format === 'md' ? exportMarkdown() : exportHtml();
+        vscode.postMessage({ type: 'exported', format: msg.format, content });
+      } catch (e) {
+        // The message stays here: it can quote the mail (an attribute name), and a notification renders links.
+        console.error(e);
+        vscode.postMessage({ type: 'exportFailed' });
+      }
     }
   });
 
@@ -156,6 +166,11 @@
             : null,
           el('button', {
             class: 'btn',
+            title: t('saveAsTitle'),
+            onclick: () => vscode.postMessage({ type: 'saveAs' }),
+          }, t('saveAs')),
+          el('button', {
+            class: 'btn',
             title: t('viewSourceTitle'),
             onclick: () => vscode.postMessage({ type: 'openAsText' }),
           }, t('viewSource'))))
@@ -175,21 +190,16 @@
     return el('div', { class: 'empty' }, t('noBody'));
   }
 
-  function renderText(t) {
+  function renderText(text) {
     const pre = el('pre', { class: 'plain' });
-    const re = /\bhttps?:\/\/[^\s<>"'（）「」『』、。]+/g;
-    let last = 0;
-    let m;
-    while ((m = re.exec(t))) {
-      let end = m[0].length;
-      while (end > 0 && ').,;:!?'.includes(m[0][end - 1])) end--; // sentence punctuation is not part of the link
-      const url = m[0].slice(0, end);
-      pre.append(t.slice(last, m.index));
-      pre.append(el('a', { href: '#', title: url, onclick: (ev) => { ev.preventDefault(); openLink(url); } }, url));
-      last = m.index + url.length;
-      re.lastIndex = last;
+    for (const p of EmlExport.splitLinks(text)) {
+      if (p.url === undefined) {
+        pre.append(p.text);
+      } else {
+        const url = p.url;
+        pre.append(el('a', { href: '#', title: url, onclick: (ev) => { ev.preventDefault(); openLink(url); } }, url));
+      }
     }
-    pre.append(t.slice(last));
     return pre;
   }
 
@@ -202,44 +212,63 @@
   // and nested frames, whose srcdoc holds markup that querySelectorAll cannot see. <template> goes too:
   // querySelectorAll cannot see inside it either, and the frame turns <template shadowrootmode> into live elements.
   // Elements like <img name="head"> can shadow the document's own members, so reach them through the prototype.
-  function cleanHtml(html) {
+  // extra(doc), if given, cleans further before the document is serialised.
+  function cleanHtml(html, allowRemote, extra) {
     const doc = new DOMParser().parseFromString(DOCTYPE + html, 'text/html');
     Document.prototype.querySelectorAll.call(doc, 'link, meta[http-equiv], iframe, frame, object, embed, template').forEach((n) => {
-      if (remoteImages && n.localName === 'link' && /(?:^|\s)stylesheet(?:\s|$)/i.test(n.getAttribute('rel') || '')) {
+      if (allowRemote && n.localName === 'link' && /(?:^|\s)stylesheet(?:\s|$)/i.test(n.getAttribute('rel') || '')) {
         n.setAttribute('rel', 'stylesheet');
       } else {
         n.remove();
       }
     });
-    return Object.getOwnPropertyDescriptor(Document.prototype, 'documentElement').get.call(doc).outerHTML;
+    if (extra) extra(doc);
+    return rootOf(doc).outerHTML;
   }
 
   // Serialising and parsing again can turn text into elements (<math><style>...), so clean until nothing
   // changes. If that never happens, the markup cannot be trusted and is shown as text.
-  function cleanUntilStable(html) {
+  function cleanUntilStable(html, allowRemote, extra) {
     let current = html;
     for (let i = 0; i < 8; i++) {
-      const next = cleanHtml(current);
+      const next = cleanHtml(current, allowRemote, extra);
       if (next === current) return current;
       current = next;
     }
     return '<pre>' + current.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>';
   }
 
-  function buildSrcdoc(html) {
+  // Looks up "cid:<id>" references. When two parts share an ID, the later one wins.
+  function cidLookup() {
     const byCid = new Map();
     for (const a of model.attachments) if (a.contentId) byCid.set(a.contentId.toLowerCase(), a);
-    const cache = new Map();
-    html = html.replace(/cid:([^"'\s)>]+)/gi, (all, id) => {
+    return (id) => {
       let key = id;
       try { key = decodeURIComponent(id); } catch (e) { /* keep */ }
-      const a = byCid.get(key.toLowerCase());
-      if (!a) return all;
+      return byCid.get(key.toLowerCase()) || null;
+    };
+  }
+
+  // Some mailers send embedded images as application/octet-stream.
+  const isImage = (a) => a.contentType.startsWith('image/') ||
+    (a.contentType === 'application/octet-stream' && /\.(?:png|jpe?g|gif|webp|bmp)$/i.test(a.filename));
+
+  // Embedded images become data: URLs. imagesOnly keeps other attachments out of a saved file.
+  function inlineCid(html, imagesOnly) {
+    const find = cidLookup();
+    const cache = new Map();
+    return html.replace(/cid:([^"'\s)>]+)/gi, (all, id) => {
+      const a = find(id);
+      if (!a || (imagesOnly && !isImage(a))) return all;
       if (!cache.has(a)) {
         cache.set(a, 'data:' + (a.contentType || 'application/octet-stream') + ';base64,' + EmlMime.bytesToB64(a.bytes));
       }
       return cache.get(a);
     });
+  }
+
+  function buildSrcdoc(html) {
+    html = inlineCid(html);
 
     const images = remoteImages ? ' https: http:' : '';
     const others = remoteImages ? ' https:' : '';
@@ -253,7 +282,7 @@
       '<meta http-equiv="x-dns-prefetch-control" content="off">' +
       '<style>html{background:#fff;color:#000}body{margin:16px;font-family:system-ui,"Segoe UI",' + jaFonts +
       'sans-serif;line-height:1.6}img{max-width:100%;height:auto}</style>' +
-      cleanUntilStable(html);
+      cleanUntilStable(html, remoteImages);
   }
 
   function renderHtml(html) {
@@ -280,5 +309,109 @@
     });
     frame.srcdoc = buildSrcdoc(html);
     return frame;
+  }
+
+  // ------------------------------------------------------------- export
+
+  // The DOM, reached through the prototypes: the mail can shadow members, with <img name="body"> on the
+  // document or <input name="attributes"> inside a <form>.
+  const getter = (proto, name) => Object.getOwnPropertyDescriptor(proto, name).get;
+  const rootOf = (doc) => getter(Document.prototype, 'documentElement').call(doc);
+  const bodyOf = (doc) => getter(Document.prototype, 'body').call(doc);
+  const childNodesOf = getter(Node.prototype, 'childNodes');
+  const nodeTypeOf = getter(Node.prototype, 'nodeType');
+  const nodeValueOf = getter(Node.prototype, 'nodeValue');
+  const setNodeValue = Object.getOwnPropertyDescriptor(Node.prototype, 'nodeValue').set;
+  const parentOf = getter(Node.prototype, 'parentNode');
+  const localNameOf = getter(Element.prototype, 'localName');
+  const DOM = {
+    children: (n) => Array.from(childNodesOf.call(n)),
+    isElement: (n) => nodeTypeOf.call(n) === Node.ELEMENT_NODE,
+    isText: (n) => nodeTypeOf.call(n) === Node.TEXT_NODE,
+    text: (n) => nodeValueOf.call(n),
+    tag: (n) => localNameOf.call(n).toLowerCase(),
+    attrNames: (n) => Element.prototype.getAttributeNames.call(n),
+    getAttr: (n, name) => Element.prototype.getAttribute.call(n, name),
+    setAttr: (n, name, value) => Element.prototype.setAttribute.call(n, name, value),
+    removeAttr: (n, name) => Element.prototype.removeAttribute.call(n, name),
+    setText: (n, value) => setNodeValue.call(n, value),
+    remove: (n) => Node.prototype.removeChild.call(parentOf.call(n), n),
+  };
+
+  function parseMail(html) {
+    return new DOMParser().parseFromString(DOCTYPE + html, 'text/html');
+  }
+
+  function baseOf(doc) {
+    const b = Document.prototype.querySelector.call(doc, 'base[href]');
+    return b ? EmlExport.baseUrl(Element.prototype.getAttribute.call(b, 'href')) : null;
+  }
+
+  // The body written out follows the tab on screen. The headers tab writes the HTML body, or the text one.
+  function exportKind() {
+    if (tab === 'text' && model.text !== null) return 'text';
+    if (model.html !== null) return 'html';
+    return model.text !== null ? 'text' : null;
+  }
+
+  function exportSummary(kind) {
+    const m = model;
+    const rows = [];
+    const add = (label, value) => { if (value) rows.push([label, value]); };
+    add(t('from'), m.from);
+    add(t('to'), m.to);
+    add('CC', m.cc);
+    add('BCC', m.bcc);
+    add(t('replyTo'), m.replyTo);
+    if (m.date) {
+      const shown = formatDate(m.date);
+      add(t('date'), shown === m.date ? shown : shown + ' (' + m.date + ')');
+    }
+    const atts = m.attachments.filter((a) => !a.referenced);
+    if (atts.length) add(t('attachmentList'), atts.map((a) => a.filename + ' (' + formatSize(a.size) + ')').join(', '));
+    return { subject: m.subject || t('noSubject'), rows, notes: kind ? [] : [t('noBody')] };
+  }
+
+  // Remote content is always left out, whatever the button says: the file would fetch it every time it
+  // is opened, by whoever opens it.
+  function exportHtml() {
+    const kind = exportKind();
+    const summary = exportSummary(kind);
+    if (kind !== 'html') return EmlExport.textDocument(summary, kind === 'text' ? model.text : '', locale);
+
+    const doc = parseMail(inlineCid(model.html, true));
+    const base = baseOf(doc);
+    const removed = EmlExport.sanitize(rootOf(doc), DOM, base);
+    if (removed) summary.notes.push(t('remoteLeftOut', removed));
+    let body = bodyOf(doc);
+    if (!body) {
+      body = Document.prototype.createElement.call(doc, 'body');
+      Node.prototype.appendChild.call(rootOf(doc), body);
+    }
+    Element.prototype.insertAdjacentHTML.call(body, 'afterbegin', EmlExport.headerHtml(summary));
+    const html = rootOf(doc).outerHTML;
+    return EmlExport.htmlHead(summary.subject, locale) +
+      cleanUntilStable(html, false, (d) => EmlExport.sanitize(rootOf(d), DOM, base));
+  }
+
+  function exportMarkdown() {
+    const kind = exportKind();
+    const summary = exportSummary(kind);
+    let body = '';
+    if (kind === 'html') {
+      const doc = parseMail(model.html);
+      const find = cidLookup();
+      body = EmlExport.htmlToMarkdown(bodyOf(doc) || rootOf(doc), DOM, {
+        t,
+        base: baseOf(doc),
+        cidName: (id) => {
+          const a = find(id);
+          return a ? a.filename : null;
+        },
+      });
+    } else if (kind === 'text') {
+      body = EmlExport.textToMarkdown(model.text);
+    }
+    return EmlExport.markdownDocument(summary, body);
   }
 })();

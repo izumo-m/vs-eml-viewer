@@ -174,4 +174,77 @@ m5 = b"".join([
     b"--B5--\r\n",
 ])
 open(f"{out}/5_safety_check.eml", "wb").write(m5)
+
+# 6: for checking Save As by hand (see DEVELOPMENT.md). Every remote reference points at .invalid.
+html6 = (
+    '<html manifest="https://remote.example.invalid/m.appcache"><head>'
+    '<base href="https://example.com/news/">'
+    '<meta http-equiv="refresh" content="0;url=https://remote.example.invalid/refresh">'
+    '<link rel="stylesheet" href="https://remote.example.invalid/a.css">'
+    '<style>@import url("https://remote.example.invalid/import.css");'
+    '.bg{background:url("https://remote.example.invalid/css-bg.png")} h1{color:#246}</style>'
+    '<script>document.title="script ran"</script>'
+    '</head><body background="https://remote.example.invalid/body-bg.png" onload="document.title=\'onload ran\'">'
+    '<h1>保存の確認</h1>'
+    '<p>埋め込み画像: <img src="cid:img6@example" alt="embedded" width="40" height="40"></p>'
+    '<p>外部画像: <img src="https://remote.example.invalid/1.png" alt="remote 1" '
+    'srcset="https://remote.example.invalid/1-2x.png 2x" onerror="document.title=\'onerror ran\'"></p>'
+    '<p><img src="https://remote.example.invalid/pixel.gif" width="1" height="1"></p>'
+    '<p><img src="file:///C:/Windows/win.ini" alt="file"> <img src="\\\\remote.example.invalid\\share\\x.png" alt="unc"></p>'
+    '<div class="bg" style="background-image:url(https://remote.example.invalid/inline-bg.png)">CSS の背景</div>'
+    '<svg width="20" height="20"><image href="https://remote.example.invalid/svg.png" width="20" height="20"/>'
+    '<a href="javascript:alert(1)"><text y="15">svg link</text></a></svg>'
+    '<video poster="https://remote.example.invalid/poster.png"></video>'
+    '<noscript><img src="https://remote.example.invalid/noscript.png"></noscript>'
+    '<iframe src="https://remote.example.invalid/frame"></iframe>'
+    '<form action="https://remote.example.invalid/post"><input name="q" value="x">'
+    '<button>送信</button><button formaction="https://remote.example.invalid/b">別の送信先</button>'
+    '<input type="image" src="https://remote.example.invalid/input.png" alt="image button"></form>'
+    '<ul><li><a href="https://example.com/r?u=https%3A%2F%2Fy.example%2Fp%3Fa%3D1%26b%3D2" '
+    'ping="https://remote.example.invalid/ping">encoded link</a></li>'
+    '<li><a href="relative.html">relative link</a></li>'
+    '<li><a href="javascript:alert(1)">javascript link</a></li>'
+    '<li><a href="file:///C:/Windows/win.ini">file link</a></li>'
+    '<li><a href="mailto:someone@example.com">mail link</a></li>'
+    '<li><a href="#bottom">in-page link</a></li></ul>'
+    '<blockquote><p>引用の段落</p></blockquote>'
+    '<pre>整形済み\n  テキスト ``` </pre>'
+    '<p>Markdown に見える文字: &lt;img src=x&gt; ![x](https://remote.example.invalid/md.png) '
+    '[x](javascript:alert(1)) $100 &amp;lt;<br># 見出しではない<br>- リストではない</p>'
+    '<table border="1"><tr><td>表 1</td><td>表 2</td></tr></table>'
+    + '<p>長い本文。印刷で欠けないことの確認用。</p>' * 60 +
+    '<p id="bottom">ここが最後です。</p>'
+    '</body></html>'
+)
+text6 = (
+    "テキスト版です。\r\n\r\n"
+    "> 引用された行\r\n> 続き\r\n本文に戻る\r\n"
+    "    字下げした行\r\n"
+    "- リストではない\r\n"
+    "<img src=x> ![x](https://remote.example.invalid/md.png)\r\n"
+    "https://example.com/a_b?c=1&d=2\r\n"
+)
+m6 = b"".join([
+    b"From: " + ew("保存 確認", "UTF-8").encode() + b" <sender@example.com>\r\n",
+    b"To: receiver@example.com\r\nCc: cc@example.com\r\n",
+    b"Subject: " + ew("名前を付けて保存の確認 <b>太字ではない</b>", "UTF-8").encode() + b"\r\n",
+    b"Date: Sun, 03 Jan 2021 10:00:00 +0900\r\nMIME-Version: 1.0\r\n",
+    b'Content-Type: multipart/mixed; boundary="MIX6"\r\n\r\n',
+    b'--MIX6\r\nContent-Type: multipart/related; boundary="REL6"\r\n\r\n',
+    b'--REL6\r\nContent-Type: multipart/alternative; boundary="ALT6"\r\n\r\n',
+    b"--ALT6\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n",
+    base64.encodebytes(text6.encode()).replace(b"\n", b"\r\n"),
+    b"--ALT6\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n",
+    base64.encodebytes(html6.encode()).replace(b"\n", b"\r\n"),
+    b"--ALT6--\r\n",
+    b"--REL6\r\nContent-Type: image/png\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <img6@example>\r\n"
+    b'Content-Disposition: inline; filename="embedded.png"\r\n\r\n',
+    base64.encodebytes(png).replace(b"\n", b"\r\n"),
+    b"--REL6--\r\n",
+    b"--MIX6\r\nContent-Type: application/pdf\r\nContent-Transfer-Encoding: base64\r\n"
+    b'Content-Disposition: attachment; filename="report.pdf"\r\n\r\n',
+    base64.encodebytes(b"%PDF-1.4 dummy").replace(b"\n", b"\r\n"),
+    b"--MIX6--\r\n",
+])
+open(f"{out}/6_export_check.eml", "wb").write(m6)
 print("ok")

@@ -39,6 +39,8 @@ function reset() {
     errors: [],
     saveDialog: null,
     saveTarget: undefined,
+    quickPick: null,
+    pickFormat: undefined,
     posted: [],
     watcher: {},
   });
@@ -81,6 +83,10 @@ const stub = {
       return { dispose() {} };
     },
     showOpenDialog: async () => [Uri.file('/out')],
+    showQuickPick: async (items, options) => {
+      state.quickPick = { items, options };
+      return items.find((i) => i.format === state.pickFormat);
+    },
     showSaveDialog: async (options) => {
       state.saveDialog = options;
       return state.saveTarget;
@@ -332,7 +338,7 @@ test('the page CSP only runs our own scripts', () => {
   const nonce = /script-src 'nonce-([^']+)'/.exec(csp)[1];
   assert.ok(!/script-src[^;]*(?:unsafe|https?:)/.test(csp));
   const scripts = [...html.matchAll(/<script ([^>]*)>/g)].map((m) => m[1]);
-  assert.equal(scripts.length, 3);
+  assert.equal(scripts.length, 4);
   for (const s of scripts) assert.ok(s.includes(`nonce="${nonce}"`), s);
 });
 
@@ -345,8 +351,89 @@ test('the mail frame stays sandboxed and locked down', () => {
   assert.match(src, /parseFromString\(DOCTYPE \+ html, 'text\/html'\)/);
   assert.match(src, /const DOCTYPE = '<!doctype html>';/);
   assert.match(src, /querySelectorAll\.call\(doc, 'link, meta\[http-equiv\], iframe, frame, object, embed, template'\)/);
-  assert.match(src, /cleanUntilStable\(html\);/);
+  assert.match(src, /cleanUntilStable\(html, remoteImages\);/);
   assert.match(src, /parseEmail\([^\n]*\n\s*remoteImages = false;/);
+});
+
+test('the exported file keeps its own policy and leaves remote content out', () => {
+  // The export needs a DOM too. These lines must stay.
+  const src = fs.readFileSync(path.join(ROOT, 'media/viewer.js'), 'utf8');
+  assert.match(src, /return EmlExport\.htmlHead\(summary\.subject, locale\) \+\n\s*cleanUntilStable\(html, false, \(d\) => EmlExport\.sanitize\(rootOf\(d\), DOM, base\)\);/);
+  assert.match(src, /const removed = EmlExport\.sanitize\(rootOf\(doc\), DOM, base\);/);
+});
+
+test('Save As writes what the webview made, in the format picked', async () => {
+  for (const [format, name, text] of [['html', 'a.html', '<p>あ</p>'], ['md', 'a.md', '# あ\n']]) {
+    reset();
+    withMail(['x.txt']);
+    const send = await openEditor();
+    state.pickFormat = format;
+    await send({ type: 'saveAs' });
+    assert.deepEqual(state.posted.at(-1), { type: 'export', format });
+    assert.deepEqual(state.quickPick.items.map((i) => i.format), ['html', 'md']);
+
+    state.saveTarget = Uri.file('/picked/' + name);
+    await send({ type: 'exported', format, content: text });
+    assert.equal(state.saveDialog.defaultUri.path, '/mail/' + name);
+    assert.equal(Buffer.from(state.files.get('/picked/' + name)).toString('utf8'), text);
+    assert.deepEqual(state.messages, ['Saved: ' + name]);
+    assert.deepEqual(state.errors, []);
+  }
+});
+
+test('Save As writes nothing the user did not ask for', async () => {
+  reset();
+  withMail([]);
+  const send = await openEditor();
+  state.saveTarget = Uri.file('/picked/x.html');
+
+  // no format picked yet
+  await send({ type: 'exported', format: 'html', content: 'x' });
+  assert.equal(state.saveDialog, null);
+
+  // cancelled
+  state.pickFormat = undefined;
+  await send({ type: 'saveAs' });
+  assert.equal(state.posted.length, 1);
+  await send({ type: 'exported', format: 'html', content: 'x' });
+  assert.equal(state.saveDialog, null);
+
+  // another format, or content that is not text
+  state.pickFormat = 'md';
+  await send({ type: 'saveAs' });
+  await send({ type: 'exported', format: 'html', content: 'x' });
+  await send({ type: 'exported', format: 'md', content: { length: 1 } });
+  await send({ type: 'exported', format: '__proto__', content: 'x' });
+  assert.equal(state.saveDialog, null);
+
+  // only one file per request
+  await send({ type: 'exported', format: 'md', content: 'x' });
+  state.saveDialog = null;
+  await send({ type: 'exported', format: 'md', content: 'y' });
+  assert.equal(state.saveDialog, null);
+  assert.equal(Buffer.from(state.files.get('/picked/x.html')).toString(), 'x');
+});
+
+test('Save As reports a failure in the webview', async () => {
+  reset();
+  withMail([]);
+  const send = await openEditor();
+  state.pickFormat = 'html';
+  await send({ type: 'saveAs' });
+  // whatever the webview sends, the notification shows only our own text: it renders links
+  await send({ type: 'exportFailed', message: '[retry](command:workbench.action.quit)' });
+  assert.deepEqual(state.errors, ['EML Viewer: ' + EmlI18n.forLocale('en')('exportFailed')]);
+  await send({ type: 'exported', format: 'html', content: 'x' });
+  assert.equal(state.saveDialog, null);
+});
+
+test('Save As offers a clean name next to the mail', async () => {
+  for (const [file, expected] of [['/mail/a.b.eml', '/mail/a.b.md'], ['/mail/.eml', '/mail/eml.md'], ['/mail/CON.eml', '/mail/_CON.md']]) {
+    reset();
+    await provider.saveExport(Uri.file(file), 'md', 'x');
+    assert.equal(state.saveDialog.defaultUri.path, expected, file);
+    assert.deepEqual(state.saveDialog.filters, { Markdown: ['md'] });
+  }
 });
 
 test('every file a README links to is in the package', () => {

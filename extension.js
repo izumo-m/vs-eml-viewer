@@ -11,6 +11,11 @@ const LOCALE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]+)*$/.test(vscode.env.language) ? vsc
 const t = EmlI18n.forLocale(LOCALE);
 EmlMime.setLocale(LOCALE);
 
+const EXPORT_FORMATS = {
+  html: { label: 'HTML', ext: 'html', describe: 'formatHtml' },
+  md: { label: 'Markdown', ext: 'md', describe: 'formatMarkdown' },
+};
+
 const MAX_NAME_BYTES = 200; // file systems allow 255; leaves room for " (123)" and temporary suffixes
 const MAX_EXT_BYTES = 20;
 
@@ -116,6 +121,10 @@ class EmlEditorProvider {
     watcher.onDidCreate(send, null, disposables);
     disposables.push(watcher);
 
+    // The format the user picked, until the webview answers. A file is only written in reply to that.
+    let pendingExport = null;
+    let disposed = false;
+
     panel.webview.onDidReceiveMessage(async (msg) => {
       try {
         switch (msg && msg.type) {
@@ -134,13 +143,34 @@ class EmlEditorProvider {
           case 'saveAll':
             await this.saveAll(document.uri, shown, msg.items || []);
             break;
+          case 'saveAs': {
+            const format = await this.pickFormat();
+            if (!format || disposed) break;
+            pendingExport = format;
+            await panel.webview.postMessage({ type: 'export', format });
+            break;
+          }
+          case 'exported': {
+            if (!pendingExport || msg.format !== pendingExport || typeof msg.content !== 'string') break;
+            pendingExport = null;
+            await this.saveExport(document.uri, msg.format, msg.content);
+            break;
+          }
+          case 'exportFailed':
+            if (!pendingExport) break;
+            pendingExport = null;
+            vscode.window.showErrorMessage(`EML Viewer: ${t('exportFailed')}`);
+            break;
         }
       } catch (e) {
         vscode.window.showErrorMessage(`EML Viewer: ${e && e.message ? e.message : e}`);
       }
     }, null, disposables);
 
-    panel.onDidDispose(() => disposables.forEach((d) => d.dispose()));
+    panel.onDidDispose(() => {
+      disposed = true;
+      disposables.forEach((d) => d.dispose());
+    });
   }
 
   async openLink(href) {
@@ -209,6 +239,33 @@ class EmlEditorProvider {
     }
   }
 
+  async pickFormat() {
+    const pick = await vscode.window.showQuickPick(
+      Object.keys(EXPORT_FORMATS).map((format) => ({
+        label: EXPORT_FORMATS[format].label,
+        description: t(EXPORT_FORMATS[format].describe),
+        format,
+      })),
+      { placeHolder: t('pickFormat') }
+    );
+    return pick ? pick.format : null;
+  }
+
+  async saveExport(emlUri, format, content) {
+    const f = EXPORT_FORMATS[format];
+    const base = path.posix.basename(emlUri.path);
+    const stem = base.slice(0, base.length - path.posix.extname(base).length);
+    const name = sanitizeFileName((trimName(stem) || 'mail') + '.' + f.ext);
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.joinPath(dirOf(emlUri), name),
+      filters: { [f.label]: [f.ext] },
+      saveLabel: t('save'),
+    });
+    if (!target) return;
+    await vscode.workspace.fs.writeFile(target, Buffer.from(content, 'utf8'));
+    vscode.window.showInformationMessage(t('saved', path.posix.basename(target.path)));
+  }
+
   getHtml(webview, mediaRoot) {
     const nonce = crypto.randomBytes(16).toString('base64');
     const asset = (f) => webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, f));
@@ -233,6 +290,7 @@ class EmlEditorProvider {
 <div id="app"><div class="loading">${t('loading')}</div></div>
 <script nonce="${nonce}" src="${asset('mime.js')}"></script>
 <script nonce="${nonce}" src="${asset('i18n.js')}"></script>
+<script nonce="${nonce}" src="${asset('export.js')}"></script>
 <script nonce="${nonce}" src="${asset('viewer.js')}"></script>
 </body>
 </html>`;

@@ -24,6 +24,7 @@ const INCLUDE = [
   'LICENSE.txt',
   'media/mime.js',
   'media/i18n.js',
+  'media/export.js',
   'media/viewer.js',
   'media/viewer.css',
 ];

@@ -31,6 +31,7 @@ npm パッケージは使っていないので、`npm install` は不要です�
 | `extension.js` | 拡張本体。.eml を開く画面の登録、添付の保存、リンクを開く処理 |
 | `media/mime.js` | メールの解析（文字コード、MIME、添付）。拡張本体と画面の両方で使う |
 | `media/i18n.js` | 画面とメッセージの文言。拡張本体と画面の両方で使う |
+| `media/export.js` | 「名前を付けて保存」の HTML / Markdown の組み立て。DOM には `viewer.js` の橋渡し（`DOM`）を通して触るので、判断の部分は `npm test` で確かめられる |
 | `media/viewer.js` / `viewer.css` | 画面の表示 |
 | `package.nls.json` / `package.nls.ja.json` | コマンド名など、`package.json` の文言 |
 | `scripts/package.js` | .vsix を作るスクリプト（外部ツール不要） |
@@ -49,6 +50,18 @@ npm パッケージは使っていないので、`npm install` は不要です�
 3. 「encoded link」を押すと、`%2F` や `%26` が変わらずにブラウザーで開くこと（example.com の 404 ページなどで問題ありません）。
 4. 「link in a form」と「in-page link」を押して、前者はブラウザーで開き、後者は画面内の移動だけになること。
 5. 添付が 4 個表示され、「すべて保存」で 4 個とも保存できること。名前は `hidden.pdf`、`_CON.txt`、`invoicegnp.exe`、200 バイトに切り詰めた `aaa….txt` になります。
+
+## 書き出しを手で確かめる
+
+書き出しの組み立て（`media/viewer.js` の `exportHtml` / `exportMarkdown`）も DOM が必要です。ここか `media/export.js` を変えたら、`test/fixtures/6_export_check.eml` を開いて確かめてください。
+
+1. 「外部コンテンツを表示」を押した状態で、「名前を付けて保存…」から HTML で保存すること。
+2. 保存した HTML を Chrome で開き、DevTools の Network に `remote.example.invalid` への通信が 1 件もないこと。タブの題名が「script ran」「onload ran」「onerror ran」に変わらないこと。ヘッダー部分に「外部コンテンツ … 件を含めていません」と出ること。
+3. 埋め込み画像（40×40 の点）が表示されること。「送信」「別の送信先」を押しても送信されないこと（コンソールに CSP の `form-action` の違反が出ます）。
+4. リンクを確かめること。「encoded link」は `%2F` や `%26` が変わらないこと。「relative link」は `https://example.com/news/relative.html` を指すこと。「javascript link」「file link」と SVG の「svg link」はリンクでないこと。「in-page link」は最後の段落へ移動すること。
+5. 印刷プレビューで、最後の「ここが最後です。」まで出ること。
+6. Markdown でも保存し、`![` も `<img` も含まないこと。外部画像は `[画像: remote 1](<https://…>)` の形のリンクに、埋め込み画像は `\[画像: embedded.png\]` に、1×1 の画像は何も出ないこと。VS Code のプレビューで「Markdown に見える文字」の段落がそのままの文字で出ること。
+7. 「テキスト」のタブに切り替えて、HTML と Markdown で保存し、引用、字下げ、URL のリンクが崩れないこと。
 
 ## 言語を追加するとき
 
